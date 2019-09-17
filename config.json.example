@@ -1,0 +1,6 @@
+{
+  "TOKEN": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "MQTT_USER": "admin",
+  "MQTT_PWD": "password123",
+  "MQTT_ADDRESS": "host.domain.com"
+}
