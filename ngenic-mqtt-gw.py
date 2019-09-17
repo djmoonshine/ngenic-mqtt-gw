@@ -26,7 +26,7 @@ def set_temperature(room_uuid, temp):
 
 def send_ha_mqtt_discovery(roomuuid, name):
     msg = {
-        "name": name,
+        "name": "Ngenic " + name,
         "availability_topic": "homeassistant/climate/" + roomuuid + "/available",
         "pl_avail": "online",
         "pl_not_avail": "offline",
