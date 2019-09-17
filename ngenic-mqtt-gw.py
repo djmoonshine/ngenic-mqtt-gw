@@ -49,7 +49,7 @@ def send_ha_temp_mqtt_discovery(controller_uuid, name):
     print("Sending mqtt discover meaage for temp sensor" + name)
     msg = {
         "state_topic": "homeassistant/sensor/" + controller_uuid + "/state",
-        "name": name,
+        "name": "Ngenic " + name,
         "unit_of_measurement": "°C"
     }
     print("Publishing " + str(msg).replace("'", '"'))
