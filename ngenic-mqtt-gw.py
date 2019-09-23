@@ -81,42 +81,53 @@ def send_state():
     for room, node in room_node.items():
         #Get room target temperature
         room_status_url = baseurl + "tunes/" + room_tune[room] + "/rooms/" + room
-        room_status = requests.get(room_status_url, headers=headers)
-        room_json = json.loads(room_status.text)
-        target_temp = room_json["targetTemperature"]
+        try:
+            room_status_reply = requests.get(room_status_url, headers=headers)
+        except:
+            print("Communication error")
+            return
 
-        #Get node mesured temperature
-        node_temp_url = baseurl + "tunes/" + room_tune[room] + "/measurements/" + node + "/latest?type=temperature_C"
-        node_temp_response = requests.get(node_temp_url, headers=headers)
-        node_temp_json = json.loads(node_temp_response.text)
-        measured_temp = node_temp_json["value"]
-        print("Updating state for room uuid " + room)
-        print("Target temp: " + str(target_temp))
-        print("Measured temp: " + str(measured_temp))
-        client.publish("homeassistant/climate/" + room + "/state/target_temp", str(target_temp))
-        client.publish("homeassistant/climate/" + room + "/state/measured_temp", str(measured_temp))
-        client.publish("homeassistant/climate/" + room + "/available", "online")
+        if room_status_reply.status_code == 200:
+            room_json = json.loads(room_status_reply.text)
+            target_temp = room_json["targetTemperature"]
+
+            #Get node mesured temperature
+            node_temp_url = baseurl + "tunes/" + room_tune[room] + "/measurements/" + node + "/latest?type=temperature_C"
+            node_temp_response = requests.get(node_temp_url, headers=headers)
+            node_temp_json = json.loads(node_temp_response.text)
+            measured_temp = node_temp_json["value"]
+            print("Updating state for room uuid " + room)
+            print("Target temp: " + str(target_temp))
+            print("Measured temp: " + str(measured_temp))
+            client.publish("homeassistant/climate/" + room + "/state/target_temp", str(target_temp))
+            client.publish("homeassistant/climate/" + room + "/state/measured_temp", str(measured_temp))
+            client.publish("homeassistant/climate/" + room + "/available", "online")
+        else:
+            print("Status error when communicating with API Status " + str(room_status_reply.status_code))
 
 def send_temp():
     for tune, controller in tune_controller.items():
         get_temp_url = baseurl + "tunes/" + tune + "/measurements/" + controller + "/latest?type=temperature_C"
-        get_temp_response = requests.get(get_temp_url , headers=headers)
-        get_temp_json = json.loads(get_temp_response.text)
-        temp = round(get_temp_json["value"],1)
-        print("Updating temperature for " + tune_name[tune] + " " + str(temp))
-        client.publish("homeassistant/sensor/" + controller + "/state", str(temp))
+
+        try:
+            get_temp_response = requests.get(get_temp_url , headers=headers)
+            get_temp_json = json.loads(get_temp_response.text)
+            temp = round(get_temp_json["value"],1)
+            print("Updating temperature for " + tune_name[tune] + " " + str(temp))
+            client.publish("homeassistant/sensor/" + controller + "/state", str(temp))
+        except:
+            print("Error during temperature update")
 
 
 def get_rooms(tuneUuid):
     url = baseurl + "tunes/" + tuneUuid + "/rooms"
+    url.isnumeric()
     response = requests.get(url, headers=headers)
     print(response.text)
     room_list = json.loads(response.text)
     for room in room_list:
         room_node[room["uuid"]] = room["nodeUuid"]
         room_tune[room["uuid"]] = tuneUuid
-        #print(room_node)
-        #print(room_tune)
         send_ha_mqtt_discovery(room["uuid"],room["name"])
 
 #Find and save controller (Node type 1) uuid since outside temperature sensor is connected to it.
@@ -126,10 +137,28 @@ def get_controller(tuneuuid):
     tune_nodes = requests.get(nodes_url, headers=headers)
     tune_nodes_json = json.loads(tune_nodes.text)
     for node in tune_nodes_json:
-        print(node)
         if node["type"] == 1:
             print("Found controller uuid: " + node["uuid"])
             tune_controller[tuneuuid] = node["uuid"]
+
+
+def get_tunes():
+    url = baseurl + "tunes"
+    try:
+        response = requests.get(url, headers=headers)
+        print(response.text)
+        tune_list = json.loads(response.text)
+        tunes = response.text
+        for tune in tune_list:
+            print(tune["tuneUuid"])
+            get_rooms(tune["tuneUuid"])
+            get_controller(tune["tuneUuid"])
+            tune_name[tune["tuneUuid"]] = tune["tuneName"]
+            send_ha_temp_mqtt_discovery(tune_controller[tune["tuneUuid"]], tune_name[tune["tuneUuid"]])
+
+
+    except:
+        print("Error communicating with api")
 
 
 with open('config.json', 'r') as f:
@@ -153,23 +182,9 @@ headers = {
     'Content-Type': 'application/json',
     'Authorization': 'Bearer ' + token,
 }
-url = baseurl + "tunes"
-try:
-    response = requests.get(url, headers=headers)
-    print(response.text)
-    tune_list = json.loads(response.text)
-    tunes = response.text
-    for tune in tune_list:
-        print(tune["tuneUuid"])
-        get_rooms(tune["tuneUuid"])
-        get_controller(tune["tuneUuid"])
-        tune_name[tune["tuneUuid"]] = tune["tuneName"]
-        send_ha_temp_mqtt_discovery(tune_controller[tune["tuneUuid"]],tune_name[tune["tuneUuid"]])
 
-
-except:
-    print("Error communicating with api")
-
+get_tunes()
+last_discovery_time = time.time()
 
 while True:
     client.loop_start()
@@ -177,7 +192,8 @@ while True:
         send_state()
         send_temp()
         last_time = time.time()
-    if time.time() - last_discovery_time > 1800:
+    if time.time() - last_discovery_time > 600:
+        get_tunes()
         last_discovery_time = time.time()
     time.sleep(10)
     client.loop_stop()
