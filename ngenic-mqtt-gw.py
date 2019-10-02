@@ -28,6 +28,7 @@ def send_ha_mqtt_discovery(roomuuid, name):
     msg = {
         "name": "Ngenic " + name,
         "availability_topic": "homeassistant/climate/" + roomuuid + "/available",
+        "mode_stat_t": "homeassistant/climate/" + roomuuid + "/state/mode",
         "pl_avail": "online",
         "pl_not_avail": "offline",
         "temp_cmd_t": "homeassistant/climate/" + roomuuid + "/setTemp",
@@ -99,6 +100,9 @@ def send_state():
             print("Updating state for room uuid " + room)
             print("Target temp: " + str(target_temp))
             print("Measured temp: " + str(measured_temp))
+            #Only mode supported is heat.
+            client.publish("homeassistant/climate/" + room + "/state/mode", "heat")
+            
             client.publish("homeassistant/climate/" + room + "/state/target_temp", str(target_temp))
             client.publish("homeassistant/climate/" + room + "/state/measured_temp", str(measured_temp))
             client.publish("homeassistant/climate/" + room + "/available", "online")
