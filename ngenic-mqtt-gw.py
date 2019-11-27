@@ -102,7 +102,7 @@ def send_state():
             print("Measured temp: " + str(measured_temp))
             #Only mode supported is heat.
             client.publish("homeassistant/climate/" + room + "/state/mode", "heat")
-            
+
             client.publish("homeassistant/climate/" + room + "/state/target_temp", str(target_temp))
             client.publish("homeassistant/climate/" + room + "/state/measured_temp", str(measured_temp))
             client.publish("homeassistant/climate/" + room + "/available", "online")
@@ -199,6 +199,8 @@ while True:
     if time.time() - last_discovery_time > 600:
         get_tunes()
         last_discovery_time = time.time()
+        send_state()
+        send_temp()
     time.sleep(10)
     client.loop_stop()
 
