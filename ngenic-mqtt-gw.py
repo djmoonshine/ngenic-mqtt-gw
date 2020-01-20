@@ -85,7 +85,7 @@ def send_state():
         try:
             room_status_reply = requests.get(room_status_url, headers=headers)
         except:
-            print("Communication error")
+            print("Communication error getting room status.")
             return
 
         if room_status_reply.status_code == 200:
@@ -94,7 +94,12 @@ def send_state():
 
             #Get node mesured temperature
             node_temp_url = baseurl + "tunes/" + room_tune[room] + "/measurements/" + node + "/latest?type=temperature_C"
-            node_temp_response = requests.get(node_temp_url, headers=headers)
+            try:
+                node_temp_response = requests.get(node_temp_url, headers=headers)
+            except:
+                print("Communication error getting room temperature for room "+ room_tune[room])
+                return
+
             node_temp_json = json.loads(node_temp_response.text)
             measured_temp = node_temp_json["value"]
             print("Updating state for room uuid " + room)
@@ -116,7 +121,7 @@ def send_temp():
         try:
             get_temp_response = requests.get(get_temp_url , headers=headers)
             get_temp_json = json.loads(get_temp_response.text)
-            temp = round(get_temp_json["value"],1)
+            temp = round(get_temp_json["value"], 1)
             print("Updating temperature for " + tune_name[tune] + " " + str(temp))
             client.publish("homeassistant/sensor/" + controller + "/state", str(temp))
         except:
